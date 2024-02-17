@@ -1,0 +1,7 @@
+# Python bytecode files
+*.pyc
+*.pyo
+
+# D1 folder
+D1/
+*.zip
