@@ -3,5 +3,5 @@
 *.pyo
 
 # D1 folder
-D1/
+Datasets/
 *.zip
