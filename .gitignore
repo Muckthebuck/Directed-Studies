@@ -2,6 +2,9 @@
 *.pyc
 *.pyo
 
-# D1 folder
+# Dataset folder
 Datasets/
 *.zip
+
+# PUDE 
+PUDE/
