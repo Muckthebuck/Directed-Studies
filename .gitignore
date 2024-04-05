@@ -5,6 +5,9 @@
 # Dataset folder
 Datasets/
 *.zip
+/SeathruNeRF_dataset/
 
 # PUDE 
 /PUDE/
+/image_completion_net/
+
