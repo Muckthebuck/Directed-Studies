@@ -11,4 +11,9 @@ Datasets/
 /PUDE/
 /image_completion_net/
 
+
+
 /convert_torch_to_pytorch/
+
+#pickle
+/Results/*
