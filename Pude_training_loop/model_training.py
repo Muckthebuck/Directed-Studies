@@ -25,6 +25,7 @@ models = {"pude": "PUDE/weightsave/final2/finall2.pth",
           "depth_anything": "nielsr/depth-anything-small",  
           "dpt3_1": "Intel/dpt-swinv2-large-384", 
           "unimatch": "unimatch/gmstereo-scale2-regrefine3-resumeflowthings-mixdata-train320x640-ft640x960-e4e291fd.pth",
+          "unimatch_small":  "unimatch/gmstereo-scale1-resumeflowthings-sceneflow-16e38788.pth",
           "new_pude": "new_pude_model_AdamW_6_0-0005_1e-06.pth"}
 default_image_dim = (576,384)
 
@@ -149,7 +150,6 @@ def get_PUDE_image_processor(transform, device):
        
     return image_processor_PUDE
 
-
 def get_unimatch_stereo_image_processor(device):
     IMAGENET_MEAN = [0.485, 0.456, 0.406]
     IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -183,6 +183,39 @@ def get_unimatch_stereo_image_processor(device):
                 'prop_radius_list': prop_radius_list, 'num_reg_refine': num_reg_refine, 'task': task}
     return image_processor_unimatch_stereo
 
+def get_unimatch_small_stereo_image_processor(device):
+    IMAGENET_MEAN = [0.485, 0.456, 0.406]
+    IMAGENET_STD = [0.229, 0.224, 0.225]
+    def image_processor_unimatch_stereo(images, return_tensors="pt"):
+        image1, image2 = images['image1'], images['image2']
+        def ensure_image_type(image):
+            if not(type(image) is np.ndarray or type(image) is torch.Tensor):
+                image = np.array(image)
+            return image
+        
+        image1, image2 = ensure_image_type(image1), ensure_image_type(image2)
+        sample = {'left': image1, 'right': image2}
+        val_transform_list = [unimatch_transforms.ToTensor(),
+                              unimatch_transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
+                              ]
+
+        val_transform = unimatch_transforms.Compose(val_transform_list)
+        sample = val_transform(sample)
+
+        image1 = sample['left'].unsqueeze(0).to(device)  # [1, 3, H, W]
+        image2 = sample['right'].unsqueeze(0).to(device)  # [1, 3, H, W]
+        attn_type='self_swin2d_cross_swin1d'
+        attn_splits_list=[2]
+        corr_radius_list=[-1]
+        prop_radius_list=[-1]
+        num_reg_refine=1
+        task='stereo'
+
+        return {'img0': image1, 'img1': image2, 'attn_type': attn_type, 
+                'attn_splits_list': attn_splits_list, 'corr_radius_list': corr_radius_list,
+                'prop_radius_list': prop_radius_list, 'task': task}
+    return image_processor_unimatch_stereo
+
 def get_unimatch_model(model_path):
     model = UniMatch(feature_channels=128,
                      num_scales=2,
@@ -191,7 +224,6 @@ def get_unimatch_model(model_path):
                      num_transformer_layers=6,
                      reg_refine=True,
                      task='stereo')
-    model.eval()
     checkpoint_flow = torch.load(model_path)
     if 'model' in checkpoint_flow:
         model.load_state_dict(checkpoint_flow['model'], strict=True)
@@ -199,10 +231,24 @@ def get_unimatch_model(model_path):
         model.load_state_dict(checkpoint_flow, strict=True)
     return model
 
+def get_unimatch_small_model(model_path):
+    model = UniMatch(num_scales=1, task='stereo')
+    checkpoint_flow = torch.load(model_path)
+    if 'model' in checkpoint_flow:
+        model.load_state_dict(checkpoint_flow['model'], strict=True)
+    else:
+        model.load_state_dict(checkpoint_flow, strict=True)
+    return model
+
+
 def get_model_image_processor_pair(model_name, model_path, device):
     if model_name == "pude":
         model, transform = load_PUDE_model(model_path, device)
         image_processor = get_PUDE_image_processor(transform, device)
+    elif "unimatch_small" in model_name:
+        model = get_unimatch_small_model(model_path)
+        image_processor = get_unimatch_small_stereo_image_processor(device)
+        return model.to(device), image_processor
     elif "unimatch" in model_name:
         model = get_unimatch_model(model_path)
         image_processor = get_unimatch_stereo_image_processor(device)

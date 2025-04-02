@@ -5,19 +5,20 @@ from Pude_training_loop.model_training import default_image_dim
 
 
 class PUDELoss(nn.Module):
-    def __init__(self, alphas: List[int] = [1, 1, 2], betas: List[int] = [5, 100, 0], trimming_rate: float = 0.3):
+    def __init__(self, alphas: List[int] = [1, 1, 2], betas: List[int] = [5, 100, 0, 1], trimming_rate: float = 0.3):
         super(PUDELoss, self).__init__()
         self.alphas = alphas
         self.betas = betas
         self.trimming_rate = trimming_rate
 
-    def forward(self, d_P: torch.Tensor, d_D: torch.Tensor, I: torch.Tensor, t_hat_nu: torch.Tensor, t_hat_mu: torch.Tensor, B_infty: torch.Tensor) -> torch.Tensor:
+    def forward(self, d_P: torch.Tensor, d_D: torch.Tensor, I: torch.Tensor, t_hat_nu: torch.Tensor, t_hat_mu: torch.Tensor, B_infty: torch.Tensor, d_old:torch.Tensor=None) -> torch.Tensor:
         """
         Compute bound loss
 
         Parameters:
-            d_P (torch.Tensor): Tensor of shape (samples,) containing PUDE depth values.
-            d_D (torch.Tensor): Tensor of shape (samples,) containing DPT/Depthanything depth values.
+            d_G (torch.Tensor): Tensor of shape (samples,) containing ground truth depth values.
+            d_T (torch.Tensor): Tensor of shape (samples,) containing PUDE depth values.
+            d_S (torch.Tensor): Tensor of shape (samples,) containing DPT/Depthanything depth values.
             I (torch.Tensor): Input image tensor of shape (channels, HW).
             t_hat_nu (torch.Tensor): Predicted nu tensor of shape (channels,).
             t_hat_mu (torch.Tensor): Predicted mu tensor of shape (channels, ).
@@ -26,7 +27,12 @@ class PUDELoss(nn.Module):
         Returns:
             torch.Tensor:  the loss values
         """
-        similarity_loss = self.trimmed_similarity_loss(d_daughter=d_P, d_parent=d_D)
+        if d_old is not None:
+            similarity_loss = self.similarity_loss(d_daughter=d_P, d_parent=d_D)
+            ground_truth_loss = self.trimmed_similarity_loss(d_daughter=d_P, d_parent=d_old)
+        else:
+            ground_truth_loss = 0
+            similarity_loss = self.trimmed_similarity_loss(d_daughter=d_P, d_parent=d_D)
         edge_aware_smoothness_loss = self.edge_aware_smoothness_loss(d_P, I)
         if self.betas[1]!=0:
             t_hat_D = self.get_medium_transmission_vectorized_torch(d_D, t_hat_nu, t_hat_mu)
@@ -36,7 +42,9 @@ class PUDELoss(nn.Module):
         else:
             loss = self.betas[0]*similarity_loss + self.betas[2]*edge_aware_smoothness_loss
         # loss.requires_grad = True
-        return loss
+        return loss + self.betas[3]*ground_truth_loss
+    
+
     
     def compute_gradients(self, tensor: torch.Tensor)-> Tuple[torch.Tensor, torch.Tensor]:
         dy = tensor[:, 1:, :] - tensor[:, :-1, :]
@@ -70,6 +78,27 @@ class PUDELoss(nn.Module):
 
         return loss
 
+    def similarity_loss(self, d_daughter: torch.Tensor, d_parent: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the similarity loss.
+
+        Parameters:
+            d_daughter (torch.Tensor): Tensor of shape (samples,) containing daughter depth values.
+            d_parent (torch.Tensor): Tensor of shape (samples,) containing parent depth values.
+
+        Returns:
+            torch.Tensor: Mean of the absolute differences between daughter and parent depths.
+        """
+        # Calculate absolute differences between daughter and parent depths
+        abs_diff = torch.abs(d_daughter - d_parent)
+
+        # Divide absolute differences by parent depths
+        scaled_diff = abs_diff / (torch.finfo(torch.float32).eps+d_parent)
+
+        # take the mean of the scaled differences
+        loss = torch.mean(scaled_diff)
+
+        return loss
     
     def trimmed_similarity_loss(self, d_daughter: torch.Tensor, d_parent: torch.Tensor) -> torch.Tensor:
         """

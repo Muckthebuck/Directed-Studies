@@ -35,7 +35,7 @@ total_num_images: int = 182
 class DatasetLoader(Dataset):
     def __init__(self, dataset_dir: str = datasets_dir, total_num_images: int = total_num_images, 
                  img_dim: Tuple[int, int] = default_image_dim,
-                 image_dir: str = image_dir, ground_truth_dir: str = ground_truth_dir,
+                 image_dir: str = image_dir, ground_truth_dir: str = ground_truth_dir,results_dir: str = results_dir,
                  dataset_names: List[str] = dataset_names, seed: int = seed, save_ground_truths: bool=False) -> None:
         """
         Initialize DatasetLoader instance.
@@ -57,6 +57,7 @@ class DatasetLoader(Dataset):
         self.image_dir = image_dir 
         self.ground_truth_dir = ground_truth_dir
         self.save_ground_truths = save_ground_truths
+        self.results_dir = results_dir 
         self.image_paths = self._get_random_image_paths(total_num_images)
 
    
@@ -95,7 +96,7 @@ class DatasetLoader(Dataset):
                     ground_truth_paths.append(ground_truth_path)
         # Save image paths to a CSV file for debugging
         current_date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        csv_file_name = results_dir + '/' + f'{current_date_time}_seed_{self.seed}.csv'
+        csv_file_name = self.results_dir + '/' + f'{current_date_time}_seed_{self.seed}.csv'
 
         if self.save_ground_truths:
             with open(csv_file_name, 'w') as f:

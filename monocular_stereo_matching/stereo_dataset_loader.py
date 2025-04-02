@@ -190,6 +190,20 @@ class DatasetLoader(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image
     
+    def _get_green_blue_channels(self, image: np.ndarray) -> np.ndarray:
+        """
+        Extract the green and blue channels from the image.
+
+        Parameters:
+            image (np.ndarray): Array representing the image.
+
+        Returns:
+            np.ndarray: Array containing the green and blue channels.
+        """
+        g_b_channels = image[:, :, 1:3]
+        return g_b_channels
+        
+        
 
     def rectify_images(self, image_left, image_right, depth, stereo_params):
         # Find the largest non-black rectangle in the image

@@ -57,7 +57,26 @@ def unimatch_display_image_with_depth(image:Image, depth1: np.ndarray, depth2: n
     abs_diff = np.abs(depth1 - depth2)
     return make_image_grid_title([image, _prepare_depth(depth1), shifted_image,  _prepare_depth(depth2), _prepare_depth(abs_diff)], 
                                  rows=1, cols=5, titles=["Original Image", "Parent Depth", f"Shifted Image (factor {scaling_factor:.2f})", "Unimatch Output", "Absolute Difference"])
-        
+
+
+def unimatch_display_image_with_depth2(image:Image, depth1: np.ndarray, depth2: np.ndarray, org_depth:np.ndarray, shifted_image: Image, scaling_factor: float = 1):
+    def _prepare_depth(model_output):
+        # prepare images for visualization
+        model_output =  model_output.reshape(384, 576)
+        formatted = (((model_output-np.min(model_output)) / (np.max(model_output)-np.min(model_output)))*255).astype("uint8")
+        colored_depth = cv2.applyColorMap(formatted, cv2.COLORMAP_INFERNO)[:, :, ::-1]
+        depth = Image.fromarray(colored_depth)
+        return depth
+    abs_diff = np.abs(depth1 - depth2)
+    abs_diff2 = np.abs(org_depth - depth2)
+    grid1 = make_image_grid_title([image, _prepare_depth(depth1), _prepare_depth(depth2), _prepare_depth(abs_diff)], 
+                                 rows=1, cols=4, titles=["Original Image", "Parent Depth", "New Unimatch Output", "Absolute Difference"])
+    grid2 = make_image_grid_title([shifted_image, _prepare_depth(org_depth), _prepare_depth(depth2), _prepare_depth(abs_diff2)],
+                                    rows=1, cols=4, titles=[f"Shifted Image (factor {scaling_factor:.2f})", "Original Unimatch Depth", "New Unimatch Output", "Absolute Difference"])
+    combined_grid = make_image_grid([grid1, grid2], rows=2, cols=1)
+                                  
+    return combined_grid
+    
 def display_image_depth_shifted_image(image:np.ndarray, image2: np.ndarray, depth: np.ndarray): 
     def _prepare_depth(model_output):
         # prepare images for visualization
