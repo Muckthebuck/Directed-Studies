@@ -11,8 +11,7 @@ Datasets/
 /PUDE/
 /image_completion_net/
 
-# models
-*.pth
+
 
 /convert_torch_to_pytorch/
 
